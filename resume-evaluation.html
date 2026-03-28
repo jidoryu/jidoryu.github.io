@@ -663,9 +663,11 @@
   ══════════════════════════════════════════════════════════════ */
 
   // ── DEMO-ONLY: free-tier key, not for production use ─────────
+  // Using gemini-1.5-flash — separate free-tier quota from 2.0-flash.
+  // If you hit 429 again, generate a fresh key at aistudio.google.com.
   const GEMINI_API_KEY = "AIzaSyBO7qLPE-EW6SwrFgP0zRLdwM5fAsrLdVc";
   const GEMINI_URL =
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   // pdf.js worker
   pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -786,15 +788,21 @@
       .trim();
   }
 
-  // ── GEMINI PROMPT ─────────────────────────────────────────────
+  // ── GEMINI PROMPT + RETRY ─────────────────────────────────────
   /**
    * Sends resume text to Gemini and requests a structured JSON evaluation.
-   * The resume_text is passed as DATA inside a clearly delimited block.
-   * Gemini is instructed to treat it strictly as content to analyse,
-   * not as instructions — prompt injection mitigation.
+   * Resume content is passed inside delimiters and Gemini is instructed
+   * to treat it strictly as data — prompt injection mitigation.
+   *
+   * Retry logic:
+   *   - On 429, reads the retryDelay from the error body (or defaults to 30 s)
+   *   - Updates the loading label with a countdown
+   *   - Retries up to MAX_RETRIES times before surfacing the error
    */
-  async function callGemini(name, area, role, resumeText) {
-    const prompt = `
+  const MAX_RETRIES = 3;
+
+  function buildPrompt(name, area, role, resumeText) {
+    return `
 You are a senior HR analyst and hiring specialist. Your task is to evaluate a candidate's resume
 for a specific role and return a structured JSON assessment.
 
@@ -825,43 +833,91 @@ JSON schema:
   "verdict": "<final hiring recommendation paragraph — should they proceed, with what conditions, or not>"
 }
 `.trim();
+  }
 
+  // Parse the retryDelay seconds from a Gemini 429 error body
+  function parseRetryDelay(errText) {
+    try {
+      const obj = JSON.parse(errText);
+      const details = obj?.error?.details || [];
+      for (const d of details) {
+        if (d["@type"]?.includes("RetryInfo") && d.retryDelay) {
+          // retryDelay is a string like "28s" or "28.44s"
+          const secs = parseFloat(d.retryDelay);
+          if (!isNaN(secs)) return Math.ceil(secs);
+        }
+      }
+    } catch (_) {}
+    return 32; // safe fallback
+  }
+
+  // Countdown display in the loading label
+  function startCountdown(seconds) {
+    const loadLabel = document.querySelector(".load-label");
+    const loadSub   = document.querySelector(".load-sub");
+    let remaining   = seconds;
+    loadLabel.textContent = `Rate limit hit — retrying in ${remaining}s`;
+    loadSub.textContent   = "Free-tier quota resets per minute. Waiting…";
+    return new Promise(resolve => {
+      const iv = setInterval(() => {
+        remaining--;
+        loadLabel.textContent = `Rate limit hit — retrying in ${remaining}s`;
+        if (remaining <= 0) {
+          clearInterval(iv);
+          loadLabel.textContent = "Analysing Resume…";
+          loadSub.textContent   = "Gemini is evaluating your profile against the target role";
+          resolve();
+        }
+      }, 1000);
+    });
+  }
+
+  async function callGemini(name, area, role, resumeText) {
+    const prompt = buildPrompt(name, area, role, resumeText);
     const body = {
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1200
-      }
+      generationConfig: { temperature: 0.3, maxOutputTokens: 1200 }
     };
 
-    const res = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const res = await fetch(GEMINI_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      throw new Error(`Gemini API error ${res.status}: ${errBody}`);
+      if (res.status === 429) {
+        const errText = await res.text();
+        console.warn(`429 on attempt ${attempt}:`, errText);
+
+        if (attempt === MAX_RETRIES) {
+          throw new Error(
+            "The API quota is exhausted and retries were exceeded. " +
+            "Please wait a minute and try again, or use a different API key."
+          );
+        }
+
+        const delay = parseRetryDelay(errText);
+        await startCountdown(delay);
+        continue; // retry
+      }
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`Gemini API error ${res.status}: ${errBody}`);
+      }
+
+      const data    = await res.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const cleaned = rawText.replace(/```json|```/gi, "").trim();
+
+      try {
+        return JSON.parse(cleaned);
+      } catch (e) {
+        console.error("Failed to parse Gemini JSON:", cleaned);
+        throw new Error("The AI returned an unexpected response format. Please try again.");
+      }
     }
-
-    const data = await res.json();
-
-    // Extract the text content from Gemini's response
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Strip any accidental markdown fences before parsing
-    const cleaned = rawText.replace(/```json|```/gi, "").trim();
-
-    let parsed;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (e) {
-      console.error("Failed to parse Gemini JSON:", cleaned);
-      throw new Error("The AI returned an unexpected response format. Please try again.");
-    }
-
-    return parsed;
   }
 
   // ── RENDER RESULTS ────────────────────────────────────────────
