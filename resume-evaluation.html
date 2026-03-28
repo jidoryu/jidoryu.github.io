@@ -3,998 +3,883 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Resume Evaluation System</title>
+  <title>AI Resume Evaluation</title>
 
-  <!-- pdf.js for client-side PDF text extraction -->
+  <!-- pdf.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <!-- Google Fonts: Playfair Display (display) + DM Sans (body) -->
+  <!-- Fonts: Instrument Serif (display) + Syne (labels) + Lato (body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@500;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
 
   <style>
-    /* ─────────────────────────────────────────
-       DESIGN SYSTEM — CSS VARIABLES
-       Palette: off-white / slate / charcoal / muted gold accent
-    ───────────────────────────────────────── */
     :root {
-      --bg:          #F5F4F1;
-      --surface:     #FFFFFF;
-      --border:      #DDDBD4;
-      --border-focus:#8E8A7E;
-      --text-primary:#1A1916;
-      --text-secondary:#6B6860;
-      --text-muted:  #9A9790;
-      --accent:      #8B6F47;
-      --accent-dark: #6D5538;
-      --accent-light:#F0EBE3;
-      --success-bg:  #EEF3EE;
-      --success-text:#2D5A2D;
-      --success-border:#B3CCB3;
-      --error-bg:    #FBF0F0;
-      --error-text:  #7A2020;
-      --error-border:#E5BCBC;
-      --font-display: 'Playfair Display', Georgia, serif;
-      --font-body:    'DM Sans', system-ui, sans-serif;
-      --radius:       4px;
-      --radius-lg:    8px;
-      --shadow-card:  0 1px 4px rgba(0,0,0,0.06), 0 4px 24px rgba(0,0,0,0.05);
-      --transition:   180ms ease;
+      --navy-deep:   #0D1117;
+      --navy-mid:    #161C26;
+      --navy-soft:   #1E2736;
+      --navy-border: #2A3344;
+      --navy-hover:  #243040;
+      --ivory:       #F2EDE4;
+      --ivory-dim:   #B8B0A4;
+      --ivory-ghost: #6A6460;
+      --copper:      #C07B4A;
+      --copper-glow: rgba(192,123,74,0.15);
+      --success:     #3A7A5A;
+      --success-bg:  rgba(58,122,90,0.12);
+      --success-bdr: rgba(58,122,90,0.35);
+      --error:       #A04040;
+      --error-bg:    rgba(160,64,64,0.10);
+      --error-bdr:   rgba(160,64,64,0.30);
+      --font-display:'Instrument Serif', Georgia, serif;
+      --font-label:  'Syne', system-ui, sans-serif;
+      --font-body:   'Lato', system-ui, sans-serif;
+      --r-sm: 3px; --r-md: 6px; --r-lg: 10px;
+      --ease: cubic-bezier(0.22,1,0.36,1);
+      --t: 200ms;
     }
 
-    /* ─────────────────────────────────────────
-       RESET + BASE
-    ───────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html { scroll-behavior: smooth; }
 
     body {
       font-family: var(--font-body);
-      background-color: var(--bg);
-      color: var(--text-primary);
-      font-size: 15px;
-      line-height: 1.6;
+      background-color: var(--navy-deep);
+      color: var(--ivory);
+      font-size: 14px;
+      line-height: 1.65;
       min-height: 100vh;
-      /* Subtle grain texture via SVG */
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      background-image:
+        radial-gradient(circle at 18% 55%, rgba(192,123,74,0.05) 0%, transparent 50%),
+        radial-gradient(circle at 82% 18%, rgba(192,123,74,0.04) 0%, transparent 40%),
+        radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 28px 28px;
     }
 
-    /* ─────────────────────────────────────────
-       LAYOUT SHELL
-    ───────────────────────────────────────── */
-    .page-wrapper {
+    /* ── SHELL ── */
+    .shell {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 60px 24px 80px;
+      padding: 56px 20px 72px;
     }
 
+    /* ── MASTHEAD ── */
+    .masthead {
+      width: 100%;
+      max-width: 720px;
+      margin-bottom: 32px;
+      animation: slideDown 0.6s var(--ease) both;
+    }
+    @keyframes slideDown {
+      from { opacity:0; transform:translateY(-14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    .masthead-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-label);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--copper);
+      margin-bottom: 14px;
+    }
+    .masthead-tag::before {
+      content: '';
+      width: 22px; height: 1px;
+      background: var(--copper);
+      display: block;
+    }
+
+    .masthead-title {
+      font-family: var(--font-display);
+      font-size: 38px;
+      font-weight: 400;
+      color: var(--ivory);
+      line-height: 1.15;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .masthead-title em { font-style: italic; color: var(--copper); }
+
+    .masthead-sub {
+      font-size: 13.5px;
+      font-weight: 300;
+      color: var(--ivory-dim);
+      max-width: 480px;
+    }
+
+    /* ── CARD ── */
     .card {
       width: 100%;
-      max-width: 680px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-card);
+      max-width: 720px;
+      background: var(--navy-mid);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--r-lg);
       overflow: hidden;
+      animation: riseUp 0.7s var(--ease) 0.1s both;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.02),
+        0 4px 8px rgba(0,0,0,0.25),
+        0 24px 64px rgba(0,0,0,0.45);
+    }
+    @keyframes riseUp {
+      from { opacity:0; transform:translateY(18px); }
+      to   { opacity:1; transform:translateY(0); }
     }
 
-    /* ─────────────────────────────────────────
-       HEADER
-    ───────────────────────────────────────── */
-    .card-header {
-      padding: 40px 48px 32px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-    }
+    /* ── FORM BODY ── */
+    .form-body { padding: 40px 48px 32px; }
 
-    .header-eyebrow {
-      font-family: var(--font-body);
+    .fsection { margin-bottom: 32px; }
+
+    .fsection-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .fsection-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 1px solid var(--navy-border);
+      background: var(--navy-soft);
+      font-family: var(--font-label);
       font-size: 10px;
+      font-weight: 700;
+      color: var(--copper);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .fsection-title {
+      font-family: var(--font-label);
+      font-size: 10.5px;
       font-weight: 600;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 12px;
+      color: var(--ivory-ghost);
     }
+    .fsection-line { flex:1; height:1px; background:var(--navy-border); }
 
-    .card-title {
-      font-family: var(--font-display);
-      font-size: 26px;
-      font-weight: 500;
-      color: var(--text-primary);
-      line-height: 1.25;
-      margin-bottom: 8px;
-    }
-
-    .card-subtitle {
-      font-size: 13.5px;
-      color: var(--text-secondary);
-      font-weight: 300;
-      max-width: 460px;
-    }
-
-    /* ─────────────────────────────────────────
-       FORM BODY
-    ───────────────────────────────────────── */
-    .card-body {
-      padding: 36px 48px 40px;
-    }
-
-    /* Section dividers within form */
-    .form-section {
-      margin-bottom: 28px;
-    }
-
-    .form-section-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .form-row {
+    .frow {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
 
-    .form-group {
+    .fgroup {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 7px;
       margin-bottom: 16px;
     }
+    .fgroup:last-child { margin-bottom: 0; }
 
-    .form-group:last-child { margin-bottom: 0; }
-
-    label {
-      font-size: 12.5px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      letter-spacing: 0.01em;
+    .flabel {
+      font-family: var(--font-label);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
     }
-
-    label .required {
-      color: var(--accent);
-      margin-left: 2px;
-    }
+    .flabel .req { color: var(--copper); margin-left: 2px; }
 
     input[type="text"],
     input[type="email"],
-    textarea,
-    select {
+    textarea {
       width: 100%;
       font-family: var(--font-body);
-      font-size: 14px;
-      color: var(--text-primary);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 10px 14px;
-      transition: border-color var(--transition), box-shadow var(--transition);
+      font-size: 13.5px;
+      font-weight: 400;
+      color: var(--ivory);
+      background: var(--navy-soft);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--r-sm);
+      padding: 11px 14px;
       outline: none;
+      transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), background var(--t);
       appearance: none;
       -webkit-appearance: none;
     }
-
     input::placeholder, textarea::placeholder {
-      color: var(--text-muted);
+      color: var(--ivory-ghost);
       font-weight: 300;
     }
-
-    input:focus, textarea:focus, select:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px rgba(139,111,71,0.08);
+    input:focus, textarea:focus {
+      border-color: var(--copper);
+      background: var(--navy-hover);
+      box-shadow: 0 0 0 3px var(--copper-glow);
     }
-
-    /* Inline validation error state */
-    input.is-invalid, textarea.is-invalid {
-      border-color: #C0726A;
-      box-shadow: 0 0 0 3px rgba(192,114,106,0.08);
+    input.invalid, textarea.invalid {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(160,64,64,0.12);
     }
+    textarea { resize: vertical; min-height: 180px; line-height: 1.7; }
 
-    .field-error {
-      font-size: 11.5px;
-      color: var(--error-text);
+    .ferror {
+      font-size: 11px;
+      color: #D07070;
       display: none;
-    }
-
-    .field-error.visible { display: block; }
-
-    textarea {
-      resize: vertical;
-      min-height: 170px;
-      line-height: 1.7;
-    }
-
-    /* ─────────────────────────────────────────
-       RESUME INPUT TOGGLE
-    ───────────────────────────────────────── */
-    .toggle-bar {
-      display: flex;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-bottom: 16px;
-      width: fit-content;
-    }
-
-    .toggle-btn {
-      padding: 8px 20px;
       font-family: var(--font-body);
-      font-size: 12.5px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      background: var(--surface);
+    }
+    .ferror.show { display: block; }
+
+    /* ── TOGGLE ── */
+    .toggle-wrap { margin-bottom: 16px; }
+    .toggle-bar {
+      display: inline-flex;
+      background: var(--navy-deep);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--r-sm);
+      padding: 3px;
+      gap: 2px;
+    }
+    .tbtn {
+      font-family: var(--font-label);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ivory-ghost);
+      background: transparent;
       border: none;
+      border-radius: 2px;
+      padding: 7px 18px;
       cursor: pointer;
-      transition: background var(--transition), color var(--transition);
-      letter-spacing: 0.02em;
+      transition: background var(--t), color var(--t);
     }
-
-    .toggle-btn + .toggle-btn {
-      border-left: 1px solid var(--border);
+    .tbtn.active {
+      background: var(--navy-soft);
+      color: var(--copper);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
+    .tbtn:hover:not(.active) { color: var(--ivory-dim); }
 
-    .toggle-btn.active {
-      background: var(--accent-light);
-      color: var(--accent-dark);
-    }
+    .rpanel { display: none; }
+    .rpanel.active { display: block; }
 
-    .toggle-btn:hover:not(.active) {
-      background: #FAFAF8;
-    }
-
-    /* Resume input panels */
-    .resume-panel { display: none; }
-    .resume-panel.active { display: block; }
-
-    /* ─────────────────────────────────────────
-       PDF UPLOAD ZONE
-    ───────────────────────────────────────── */
-    .upload-zone {
-      border: 1.5px dashed var(--border);
-      border-radius: var(--radius-lg);
-      padding: 36px 24px;
+    /* ── DROP ZONE ── */
+    .drop-zone {
+      position: relative;
+      border: 1.5px dashed var(--navy-border);
+      border-radius: var(--r-md);
+      padding: 40px 24px;
       text-align: center;
       cursor: pointer;
-      transition: border-color var(--transition), background var(--transition);
-      position: relative;
-      background: #FAFAF8;
+      background: var(--navy-soft);
+      transition: border-color var(--t), background var(--t);
     }
-
-    .upload-zone:hover,
-    .upload-zone.drag-over {
-      border-color: var(--accent);
-      background: var(--accent-light);
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--copper);
+      background: var(--navy-hover);
     }
-
-    .upload-zone.is-invalid {
-      border-color: #C0726A;
+    .drop-zone.invalid { border-color: var(--error); }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
     }
-
-    .upload-zone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
-
-    .upload-icon {
-      width: 36px;
-      height: 36px;
+    .dz-icon {
+      width: 32px; height: 32px;
       margin: 0 auto 12px;
-      color: var(--text-muted);
+      color: var(--ivory-ghost);
     }
-
-    .upload-title {
-      font-size: 13.5px;
-      font-weight: 500;
-      color: var(--text-secondary);
+    .dz-title {
+      font-family: var(--font-label);
+      font-size: 12px; font-weight: 600;
+      color: var(--ivory-dim);
       margin-bottom: 4px;
+      letter-spacing: 0.04em;
     }
-
-    .upload-hint {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 300;
-    }
-
-    .upload-filename {
+    .dz-hint { font-size: 11.5px; color: var(--ivory-ghost); font-weight: 300; }
+    .dz-file {
       margin-top: 12px;
-      font-size: 12.5px;
-      color: var(--accent-dark);
-      font-weight: 500;
+      font-size: 12px;
+      color: var(--copper);
+      font-family: var(--font-label);
+      font-weight: 600;
       display: none;
     }
+    .dz-file.show { display: block; }
 
-    .upload-filename.visible { display: block; }
+    /* ── GLOBAL ERROR ── */
+    .global-err {
+      display: none;
+      margin: 0 48px 20px;
+      background: var(--error-bg);
+      border: 1px solid var(--error-bdr);
+      border-radius: var(--r-md);
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #D07070;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .global-err.show { display: flex; }
+    .global-err svg { flex-shrink:0; width:16px; height:16px; margin-top:1px; color:#D07070; }
 
-    /* ─────────────────────────────────────────
-       SUBMIT BUTTON
-    ───────────────────────────────────────── */
-    .form-footer {
-      margin-top: 28px;
+    /* ── FORM FOOTER ── */
+    .form-foot {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
+      padding: 20px 48px 40px;
+      border-top: 1px solid var(--navy-border);
       flex-wrap: wrap;
     }
-
-    .form-note {
+    .foot-note {
       font-size: 11.5px;
-      color: var(--text-muted);
+      color: var(--ivory-ghost);
       font-weight: 300;
     }
-
     .btn-submit {
-      font-family: var(--font-body);
-      font-size: 13.5px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: #FFFFFF;
-      background: var(--accent);
+      font-family: var(--font-label);
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--navy-deep);
+      background: var(--copper);
       border: none;
-      border-radius: var(--radius);
-      padding: 13px 32px;
+      border-radius: var(--r-sm);
+      padding: 13px 36px;
       cursor: pointer;
-      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+      transition: background var(--t), box-shadow var(--t), transform 100ms;
       white-space: nowrap;
     }
-
     .btn-submit:hover:not(:disabled) {
-      background: var(--accent-dark);
-      box-shadow: 0 2px 12px rgba(139,111,71,0.25);
+      background: #D4905E;
+      box-shadow: 0 4px 20px rgba(192,123,74,0.35);
     }
+    .btn-submit:active:not(:disabled) { transform: translateY(1px); }
+    .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .btn-submit:active:not(:disabled) {
-      transform: translateY(1px);
-    }
-
-    .btn-submit:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* ─────────────────────────────────────────
-       STATE OVERLAYS: LOADING / SUCCESS / ERROR
-    ───────────────────────────────────────── */
-    .state-overlay {
+    /* ── OVERLAYS ── */
+    .overlay {
       display: none;
-      padding: 36px 48px 40px;
-      animation: fadeIn 0.25s ease;
+      padding: 56px 48px;
+      animation: fadeUp 0.3s var(--ease) both;
+    }
+    .overlay.active { display: block; }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(8px); }
+      to   { opacity:1; transform:translateY(0); }
     }
 
-    .state-overlay.active { display: block; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
+    /* Loading */
+    .load-inner {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 22px;
     }
-
-    /* Loading state */
-    .loading-inner {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-      padding: 24px 0;
-    }
-
-    .spinner {
-      width: 36px;
-      height: 36px;
-      border: 2.5px solid var(--border);
-      border-top-color: var(--accent);
+    .spinner-ring {
+      width: 40px; height: 40px;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      border: 2px solid var(--navy-border);
+      border-top-color: var(--copper);
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .load-label {
+      font-family: var(--font-label);
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--ivory-ghost);
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      font-size: 14px;
-      color: var(--text-secondary);
-      font-weight: 400;
-    }
-
-    /* Success state */
-    .success-box {
-      border: 1px solid var(--success-border);
+    /* Success */
+    .success-panel {
       background: var(--success-bg);
-      border-radius: var(--radius-lg);
+      border: 1px solid var(--success-bdr);
+      border-radius: var(--r-md);
       padding: 28px 32px;
-      display: flex;
-      gap: 16px;
-      align-items: flex-start;
+      display: flex; gap: 18px; align-items: flex-start;
     }
-
-    .success-icon {
-      flex-shrink: 0;
-      width: 22px;
-      height: 22px;
-      color: var(--success-text);
-      margin-top: 1px;
+    .success-panel svg { flex-shrink:0; width:20px; height:20px; color:#5AAA80; margin-top:2px; }
+    .suc-title {
+      font-family: var(--font-label);
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: #5AAA80; margin-bottom: 6px;
     }
-
-    .success-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--success-text);
-      margin-bottom: 4px;
-    }
-
-    .success-body {
-      font-size: 13.5px;
-      color: var(--success-text);
-      font-weight: 300;
-      line-height: 1.6;
-    }
-
+    .suc-body { font-size: 13px; color: #78C49A; font-weight: 300; line-height: 1.65; }
     .btn-reset {
-      margin-top: 20px;
-      font-family: var(--font-body);
-      font-size: 12.5px;
-      font-weight: 500;
-      color: var(--text-secondary);
+      margin-top: 24px;
+      font-family: var(--font-label);
+      font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ivory-ghost);
       background: none;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 8px 20px;
+      border: 1px solid var(--navy-border);
+      border-radius: var(--r-sm);
+      padding: 9px 22px;
       cursor: pointer;
-      transition: border-color var(--transition), color var(--transition);
+      transition: border-color var(--t), color var(--t);
     }
+    .btn-reset:hover { border-color: var(--copper); color: var(--copper); }
 
-    .btn-reset:hover {
-      border-color: var(--border-focus);
-      color: var(--text-primary);
-    }
-
-    /* Error state */
-    .error-box {
-      border: 1px solid var(--error-border);
-      background: var(--error-bg);
-      border-radius: var(--radius-lg);
-      padding: 20px 24px;
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-    }
-
-    .error-icon {
-      flex-shrink: 0;
-      width: 18px;
-      height: 18px;
-      color: var(--error-text);
-      margin-top: 2px;
-    }
-
-    #error-message {
-      font-size: 13.5px;
-      color: var(--error-text);
-      font-weight: 400;
-    }
-
-    /* ─────────────────────────────────────────
-       FOOTER
-    ───────────────────────────────────────── */
-    .page-footer {
-      margin-top: 40px;
-      font-size: 11.5px;
-      color: var(--text-muted);
-      letter-spacing: 0.02em;
+    /* ── FOOTER ── */
+    .page-foot {
+      margin-top: 36px;
+      font-size: 11px;
+      color: var(--ivory-ghost);
+      letter-spacing: 0.06em;
       font-weight: 300;
+      opacity: 0.65;
+      animation: riseUp 0.8s var(--ease) 0.3s both;
     }
 
-    /* ─────────────────────────────────────────
-       RESPONSIVE
-    ───────────────────────────────────────── */
-    @media (max-width: 600px) {
-      .page-wrapper { padding: 32px 16px 60px; }
-      .card-header  { padding: 28px 24px 22px; }
-      .card-body    { padding: 24px 24px 28px; }
-      .state-overlay { padding: 24px 24px 28px; }
-      .form-row     { grid-template-columns: 1fr; gap: 0; }
-      .card-title   { font-size: 22px; }
-      .form-footer  { flex-direction: column; align-items: stretch; }
-      .btn-submit   { text-align: center; }
+    /* ── RESPONSIVE ── */
+    @media (max-width: 580px) {
+      .shell          { padding: 36px 16px 56px; }
+      .masthead-title { font-size: 28px; }
+      .form-body      { padding: 28px 24px 24px; }
+      .form-foot      { padding: 18px 24px 28px; flex-direction: column; align-items: stretch; }
+      .btn-submit     { text-align: center; }
+      .frow           { grid-template-columns: 1fr; gap: 0; }
+      .global-err     { margin: 0 24px 18px; }
+      .overlay        { padding: 40px 24px; }
     }
   </style>
 </head>
-
 <body>
-  <div class="page-wrapper">
+<div class="shell">
 
-    <!-- ── CARD ───────────────────────────────────── -->
-    <div class="card" role="main">
+  <!-- MASTHEAD -->
+  <header class="masthead">
+    <div class="masthead-tag">Talent Assessment Platform</div>
+    <h1 class="masthead-title">AI Resume <em>Evaluation</em> System</h1>
+    <p class="masthead-sub">Structured candidate assessment based on role-specific criteria. Results delivered directly to your inbox.</p>
+  </header>
 
-      <!-- Header -->
-      <div class="card-header">
-        <div class="header-eyebrow">Talent Assessment Platform</div>
-        <h1 class="card-title">AI Resume Evaluation System</h1>
-        <p class="card-subtitle">Structured candidate assessment based on role-specific criteria</p>
-      </div>
+  <!-- CARD -->
+  <div class="card" role="main">
 
-      <!-- ── FORM (shown by default) ── -->
-      <div class="card-body" id="form-view">
-        <form id="evaluation-form" novalidate>
+    <!-- ── FORM VIEW ── -->
+    <div id="form-view">
+      <form id="eval-form" novalidate>
+        <div class="form-body">
 
-          <!-- Section: Candidate Information -->
-          <div class="form-section">
-            <div class="form-section-label">Candidate Information</div>
+          <!-- § 1 Candidate Information -->
+          <div class="fsection">
+            <div class="fsection-head">
+              <span class="fsection-num">1</span>
+              <span class="fsection-title">Candidate Information</span>
+              <span class="fsection-line"></span>
+            </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="full-name">Full Name<span class="required">*</span></label>
-                <input type="text" id="full-name" name="name"
-                       placeholder="e.g. Sarah Mitchell"
-                       autocomplete="name" />
-                <span class="field-error" id="error-name">Please enter your full name.</span>
+            <div class="frow">
+              <div class="fgroup">
+                <label class="flabel" for="inp-name">Full Name<span class="req">*</span></label>
+                <input type="text" id="inp-name" placeholder="e.g. Sarah Mitchell" autocomplete="name" />
+                <span class="ferror" id="err-name">Full name is required.</span>
               </div>
-
-              <div class="form-group">
-                <label for="email">Email Address<span class="required">*</span></label>
-                <input type="email" id="email" name="email"
-                       placeholder="you@company.com"
-                       autocomplete="email" />
-                <span class="field-error" id="error-email">Please enter a valid email address.</span>
+              <div class="fgroup">
+                <label class="flabel" for="inp-email">Email Address<span class="req">*</span></label>
+                <input type="email" id="inp-email" placeholder="you@company.com" autocomplete="email" />
+                <span class="ferror" id="err-email">A valid email address is required.</span>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="area">Area / Discipline<span class="required">*</span></label>
-                <input type="text" id="area" name="area"
-                       placeholder="e.g. Software Engineering" />
-                <span class="field-error" id="error-area">Please specify the area or discipline.</span>
+            <div class="frow">
+              <div class="fgroup">
+                <label class="flabel" for="inp-area">Area / Discipline<span class="req">*</span></label>
+                <input type="text" id="inp-area" placeholder="e.g. Software Engineering" />
+                <span class="ferror" id="err-area">Area or discipline is required.</span>
               </div>
-
-              <div class="form-group">
-                <label for="role">Target Role<span class="required">*</span></label>
-                <input type="text" id="role" name="role"
-                       placeholder="e.g. Backend Developer" />
-                <span class="field-error" id="error-role">Please specify the target role.</span>
+              <div class="fgroup">
+                <label class="flabel" for="inp-role">Target Role<span class="req">*</span></label>
+                <input type="text" id="inp-role" placeholder="e.g. Backend Developer" />
+                <span class="ferror" id="err-role">Target role is required.</span>
               </div>
             </div>
-          </div><!-- /Section -->
+          </div>
 
-          <!-- Section: Resume Content -->
-          <div class="form-section">
-            <div class="form-section-label">Resume Content</div>
-
-            <!-- Toggle: Text vs PDF -->
-            <div class="toggle-bar" role="group" aria-label="Resume input method">
-              <button type="button" class="toggle-btn active" id="toggle-text"
-                      aria-pressed="true">Paste Text</button>
-              <button type="button" class="toggle-btn" id="toggle-pdf"
-                      aria-pressed="false">Upload PDF</button>
+          <!-- § 2 Resume Content -->
+          <div class="fsection" style="margin-bottom:0">
+            <div class="fsection-head">
+              <span class="fsection-num">2</span>
+              <span class="fsection-title">Resume Content</span>
+              <span class="fsection-line"></span>
             </div>
 
-            <!-- Panel: Text -->
-            <div class="resume-panel active" id="panel-text">
-              <div class="form-group">
-                <label for="resume-text">Resume Text<span class="required">*</span></label>
-                <textarea id="resume-text" name="resume_text"
-                          placeholder="Paste the full resume content here…"
-                          rows="9"></textarea>
-                <span class="field-error" id="error-resume">Please provide your resume content.</span>
+            <div class="toggle-wrap">
+              <div class="toggle-bar" role="group" aria-label="Input method">
+                <button type="button" class="tbtn active" id="tbtn-text" aria-pressed="true">Paste Text</button>
+                <button type="button" class="tbtn" id="tbtn-pdf"  aria-pressed="false">Upload PDF</button>
               </div>
             </div>
 
-            <!-- Panel: PDF -->
-            <div class="resume-panel" id="panel-pdf">
-              <div class="form-group">
-                <label>Resume PDF<span class="required">*</span></label>
-                <div class="upload-zone" id="upload-zone">
-                  <!-- Hidden file input overlays the entire zone -->
-                  <input type="file" id="pdf-input" accept=".pdf,application/pdf"
-                         aria-label="Upload PDF resume" />
+            <!-- Text panel -->
+            <div class="rpanel active" id="panel-text">
+              <div class="fgroup">
+                <label class="flabel" for="inp-resume">Resume Text<span class="req">*</span></label>
+                <textarea id="inp-resume" placeholder="Paste the full resume content here…" rows="10"></textarea>
+                <span class="ferror" id="err-resume">Resume content is required.</span>
+              </div>
+            </div>
 
-                  <!-- Upload icon (SVG) -->
-                  <svg class="upload-icon" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="1.5"
-                       stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 16V4M12 4l-3 3M12 4l3 3"/>
-                    <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            <!-- PDF panel -->
+            <div class="rpanel" id="panel-pdf">
+              <div class="fgroup">
+                <label class="flabel">Resume PDF<span class="req">*</span></label>
+                <div class="drop-zone" id="drop-zone">
+                  <input type="file" id="inp-pdf" accept=".pdf,application/pdf" aria-label="Upload PDF resume" />
+                  <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 15V3M12 3L8.5 6.5M12 3l3.5 3.5"/>
+                    <path d="M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2"/>
                   </svg>
-
-                  <div class="upload-title">Drop your PDF here or click to browse</div>
-                  <div class="upload-hint">Supports PDF files up to 10 MB</div>
-                  <div class="upload-filename" id="upload-filename"></div>
+                  <div class="dz-title">Drop PDF here or click to browse</div>
+                  <div class="dz-hint">PDF only · Maximum 10 MB</div>
+                  <div class="dz-file" id="dz-filename"></div>
                 </div>
-                <span class="field-error" id="error-pdf">Please upload a valid PDF file.</span>
+                <span class="ferror" id="err-pdf">Please upload a PDF resume.</span>
               </div>
             </div>
-          </div><!-- /Section -->
-
-          <!-- Global error (non-field) -->
-          <div class="error-box" id="global-error-box"
-               style="display:none; margin-bottom:20px;" role="alert">
-            <svg class="error-icon" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span id="error-message"></span>
           </div>
 
-          <!-- Footer: note + submit -->
-          <div class="form-footer">
-            <p class="form-note">Results will be sent to the provided email address.</p>
-            <button type="submit" class="btn-submit" id="submit-btn">
-              Submit for Evaluation
-            </button>
-          </div>
+        </div><!-- /form-body -->
 
-        </form>
-      </div><!-- /card-body -->
-
-      <!-- ── LOADING STATE ── -->
-      <div class="state-overlay" id="loading-view" aria-live="polite" aria-busy="true">
-        <div class="loading-inner">
-          <div class="spinner" role="status" aria-label="Loading"></div>
-          <p class="loading-text">Processing your submission…</p>
-        </div>
-      </div>
-
-      <!-- ── SUCCESS STATE ── -->
-      <div class="state-overlay" id="success-view" aria-live="polite">
-        <div class="success-box" role="status">
-          <svg class="success-icon" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2"
+        <!-- Global error banner -->
+        <div class="global-err" id="global-err" role="alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22 4 12 14.01 9 11.01"/>
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
-          <div>
-            <div class="success-title">Evaluation submitted successfully.</div>
-            <p class="success-body">
-              Your resume has been received and queued for analysis.
-              Results will be sent to your email address once the assessment is complete.
-            </p>
-          </div>
+          <span id="global-err-msg"></span>
         </div>
-        <button type="button" class="btn-reset" id="reset-btn">
-          Submit another evaluation
-        </button>
+
+        <!-- Submit bar -->
+        <div class="form-foot">
+          <span class="foot-note">Results will be delivered to your email address.</span>
+          <button type="submit" class="btn-submit" id="btn-submit">Submit for Evaluation</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── LOADING ── -->
+    <div class="overlay" id="loading-view" aria-live="polite" aria-busy="true">
+      <div class="load-inner">
+        <div class="spinner-ring" role="status" aria-label="Processing"></div>
+        <span class="load-label">Processing your submission…</span>
       </div>
+    </div>
 
-    </div><!-- /card -->
+    <!-- ── SUCCESS ── -->
+    <div class="overlay" id="success-view" aria-live="polite">
+      <div class="success-panel" role="status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <div>
+          <div class="suc-title">Evaluation Submitted Successfully</div>
+          <p class="suc-body">
+            Your resume has been received and queued for AI-powered analysis.<br/>
+            Assessment results will be sent to your email address shortly.
+          </p>
+        </div>
+      </div>
+      <button type="button" class="btn-reset" id="btn-reset">Submit another evaluation →</button>
+    </div>
 
-    <!-- Footer -->
-    <footer class="page-footer">
-      Developed by Anderson (Kölja)
-    </footer>
+  </div><!-- /.card -->
 
-  </div><!-- /page-wrapper -->
+  <footer class="page-foot">Developed by Anderson (Kölja)</footer>
+</div>
 
 
-  <script>
-    /**
-     * AI Resume Evaluation System
-     * Author: Anderson (Kölja)
-     *
-     * Data flow:
-     *   1. Validate inputs
-     *   2. Extract text from PDF if needed (pdf.js, client-side)
-     *   3. Normalize / sanitize text (treat as untrusted data — never eval/execute)
-     *   4. Base64-encode full payload (transport encoding only)
-     *   5. POST to webhook endpoint
-     */
+<script>
+  /* ═══════════════════════════════════════════════════════════
+     AI RESUME EVALUATION — CLIENT LOGIC
+     ───────────────────────────────────────────────────────────
+     Webhook dispatch strategy (matches MNTP BROWSER V3 pattern):
 
-    // ─── CONFIGURATION ────────────────────────────────────────────────────────
-    // Replace with your actual MacroDroid (or other) webhook URL.
-    // If you deploy this server-side, move this to an environment variable and
-    // never expose it directly in the client.
-    const WEBHOOK_URL = "https://trigger.macrodroid.com/8b91259f-0406-445a-9a7d-c4ed43cf43db/rh?raw=";
+       1. Build a JSON payload object
+       2. JSON.stringify → btoa (base64)
+       3. Append to webhook URL as a query parameter:
+            ?raw=<encodeURIComponent(base64)>
+       4. Fire via  new Image().src = url
+            — GET request, no CORS preflight, fire-and-forget
+            — MacroDroid receives it and processes async
+       5. onload / onerror both resolve (request landed either way)
+       6. Safety timeout resolves after 6 s if no image event fires
 
-    // pdf.js worker (CDN)
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+     Resume content is NEVER evaluated or executed — data only.
+  ═══════════════════════════════════════════════════════════ */
 
-    // ─── DOM REFS ─────────────────────────────────────────────────────────────
-    const form         = document.getElementById("evaluation-form");
-    const formView     = document.getElementById("form-view");
-    const loadingView  = document.getElementById("loading-view");
-    const successView  = document.getElementById("success-view");
-    const submitBtn    = document.getElementById("submit-btn");
-    const resetBtn     = document.getElementById("reset-btn");
-    const toggleText   = document.getElementById("toggle-text");
-    const togglePdf    = document.getElementById("toggle-pdf");
-    const panelText    = document.getElementById("panel-text");
-    const panelPdf     = document.getElementById("panel-pdf");
-    const pdfInput     = document.getElementById("pdf-input");
-    const uploadZone   = document.getElementById("upload-zone");
-    const uploadFilename = document.getElementById("upload-filename");
-    const globalErrBox = document.getElementById("global-error-box");
-    const globalErrMsg = document.getElementById("error-message");
+  // ── CONFIG ────────────────────────────────────────────────
+  const WEBHOOK_BASE  = "https://trigger.macrodroid.com/8b91259f-0406-445a-9a7d-c4ed43cf43db/rh";
+  const WEBHOOK_PARAM = "raw";   // payload arrives at MacroDroid as: ?raw=<base64>
 
-    // ─── STATE ────────────────────────────────────────────────────────────────
-    let activeMode = "text"; // "text" | "pdf"
-    let selectedFile = null;
+  // pdf.js worker (CDN)
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    // ─── TOGGLE: TEXT / PDF ───────────────────────────────────────────────────
-    toggleText.addEventListener("click", () => setMode("text"));
-    togglePdf.addEventListener("click",  () => setMode("pdf"));
+  // ── DOM REFS ──────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const formView    = $("form-view");
+  const loadingView = $("loading-view");
+  const successView = $("success-view");
+  const evalForm    = $("eval-form");
+  const btnSubmit   = $("btn-submit");
+  const btnReset    = $("btn-reset");
+  const tbtnText    = $("tbtn-text");
+  const tbtnPdf     = $("tbtn-pdf");
+  const panelText   = $("panel-text");
+  const panelPdf    = $("panel-pdf");
+  const inpPdf      = $("inp-pdf");
+  const dropZone    = $("drop-zone");
+  const dzFilename  = $("dz-filename");
+  const globalErr   = $("global-err");
+  const globalErrMsg= $("global-err-msg");
 
-    function setMode(mode) {
-      activeMode = mode;
-      toggleText.classList.toggle("active", mode === "text");
-      togglePdf.classList.toggle("active",  mode === "pdf");
-      toggleText.setAttribute("aria-pressed", mode === "text");
-      togglePdf.setAttribute("aria-pressed",  mode === "pdf");
-      panelText.classList.toggle("active", mode === "text");
-      panelPdf.classList.toggle("active",  mode === "pdf");
-      // Clear field errors on switch
-      clearError("resume-text"); clearError("pdf");
+  // ── STATE ─────────────────────────────────────────────────
+  let mode    = "text";   // "text" | "pdf"
+  let pdfFile = null;
+
+  // ── MODE TOGGLE ───────────────────────────────────────────
+  tbtnText.onclick = () => switchMode("text");
+  tbtnPdf.onclick  = () => switchMode("pdf");
+
+  function switchMode(m) {
+    mode = m;
+    tbtnText.classList.toggle("active", m === "text");
+    tbtnPdf.classList.toggle("active",  m === "pdf");
+    tbtnText.setAttribute("aria-pressed", m === "text");
+    tbtnPdf.setAttribute("aria-pressed",  m === "pdf");
+    panelText.classList.toggle("active", m === "text");
+    panelPdf.classList.toggle("active",  m === "pdf");
+    clearFErr("inp-resume", "err-resume");
+    clearFErr("drop-zone",  "err-pdf");
+  }
+
+  // ── PDF FILE SELECTION + DRAG-DROP ───────────────────────
+  inpPdf.addEventListener("change", () => {
+    if (inpPdf.files[0]) acceptFile(inpPdf.files[0]);
+  });
+  dropZone.addEventListener("dragover", e => {
+    e.preventDefault(); dropZone.classList.add("drag-over");
+  });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault(); dropZone.classList.remove("drag-over");
+    if (e.dataTransfer.files[0]) acceptFile(e.dataTransfer.files[0]);
+  });
+
+  function acceptFile(file) {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      showGErr("Only PDF files are accepted."); return;
     }
-
-    // ─── PDF: FILE SELECT + DRAG-DROP ─────────────────────────────────────────
-    pdfInput.addEventListener("change", () => {
-      if (pdfInput.files[0]) handleFileSelected(pdfInput.files[0]);
-    });
-
-    uploadZone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      uploadZone.classList.add("drag-over");
-    });
-    uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("drag-over"));
-    uploadZone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      uploadZone.classList.remove("drag-over");
-      const file = e.dataTransfer.files[0];
-      if (file) handleFileSelected(file);
-    });
-
-    function handleFileSelected(file) {
-      // Validate type client-side before extraction
-      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-        showGlobalError("Only PDF files are accepted.");
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        showGlobalError("PDF file exceeds the 10 MB size limit.");
-        return;
-      }
-      selectedFile = file;
-      uploadFilename.textContent = file.name;
-      uploadFilename.classList.add("visible");
-      uploadZone.classList.remove("is-invalid");
-      clearError("pdf");
-      hideGlobalError();
+    if (file.size > 10 * 1024 * 1024) {
+      showGErr("PDF exceeds the 10 MB size limit."); return;
     }
+    pdfFile = file;
+    dzFilename.textContent = "✓ " + file.name;
+    dzFilename.classList.add("show");
+    dropZone.classList.remove("invalid");
+    clearFErr("drop-zone", "err-pdf");
+    hideGErr();
+  }
 
-    // ─── VALIDATION ───────────────────────────────────────────────────────────
-    function validateForm() {
-      let valid = true;
+  // ── VALIDATION ────────────────────────────────────────────
+  function fval(id)     { return $(id).value.trim(); }
+  function isEmail(s)   { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s); }
 
-      // Name
-      const name = getField("full-name");
-      if (!name) { markInvalid("full-name", "error-name"); valid = false; }
-      else clearError("full-name");
+  function markInvalid(inputId, errId) {
+    $(inputId).classList.add("invalid");
+    $(errId).classList.add("show");
+  }
+  function clearFErr(inputId, errId) {
+    const el = $(inputId); if (el) el.classList.remove("invalid");
+    const er = $(errId);   if (er) er.classList.remove("show");
+  }
+  function showGErr(msg)  { globalErrMsg.textContent = msg; globalErr.classList.add("show"); }
+  function hideGErr()     { globalErr.classList.remove("show"); }
 
-      // Email
-      const email = getField("email");
-      if (!email || !isValidEmail(email)) { markInvalid("email", "error-email"); valid = false; }
-      else clearError("email");
+  function validateAll() {
+    let ok = true;
 
-      // Area
-      const area = getField("area");
-      if (!area) { markInvalid("area", "error-area"); valid = false; }
-      else clearError("area");
+    if (!fval("inp-name"))              { markInvalid("inp-name",  "err-name");  ok = false; }
+    else clearFErr("inp-name", "err-name");
 
-      // Role
-      const role = getField("role");
-      if (!role) { markInvalid("role", "error-role"); valid = false; }
-      else clearError("role");
+    if (!isEmail(fval("inp-email")))    { markInvalid("inp-email", "err-email"); ok = false; }
+    else clearFErr("inp-email", "err-email");
 
-      // Resume
-      if (activeMode === "text") {
-        const rt = getField("resume-text");
-        if (!rt) { markInvalid("resume-text", "error-resume"); valid = false; }
-        else clearError("resume-text");
+    if (!fval("inp-area"))              { markInvalid("inp-area",  "err-area");  ok = false; }
+    else clearFErr("inp-area", "err-area");
+
+    if (!fval("inp-role"))              { markInvalid("inp-role",  "err-role");  ok = false; }
+    else clearFErr("inp-role", "err-role");
+
+    if (mode === "text") {
+      if (!fval("inp-resume"))          { markInvalid("inp-resume","err-resume"); ok = false; }
+      else clearFErr("inp-resume", "err-resume");
+    } else {
+      if (!pdfFile) {
+        dropZone.classList.add("invalid");
+        $("err-pdf").classList.add("show");
+        ok = false;
       } else {
-        if (!selectedFile) {
-          uploadZone.classList.add("is-invalid");
-          document.getElementById("error-pdf").classList.add("visible");
-          valid = false;
-        } else {
-          uploadZone.classList.remove("is-invalid");
-          document.getElementById("error-pdf").classList.remove("visible");
-        }
+        dropZone.classList.remove("invalid");
+        $("err-pdf").classList.remove("show");
       }
-
-      return valid;
     }
+    return ok;
+  }
 
-    function getField(id) {
-      return document.getElementById(id).value.trim();
+  // ── PDF TEXT EXTRACTION ───────────────────────────────────
+  // Uses pdf.js — result is raw text, never eval'd or executed.
+  async function extractPdf(file) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const parts = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const tc   = await page.getTextContent();
+      parts.push(tc.items.map(t => t.str).join(" "));
     }
+    return parts.join("\n\n").trim();
+  }
 
-    function isValidEmail(email) {
-      // RFC-compliant basic check — no eval, no exec
-      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
-    }
+  // ── SANITIZE ──────────────────────────────────────────────
+  // Strips control characters and collapses whitespace.
+  // Content is STRICTLY data — no interpretation, no execution.
+  function sanitize(raw) {
+    return raw
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, " ")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
 
-    function markInvalid(inputId, errorId) {
-      document.getElementById(inputId).classList.add("is-invalid");
-      document.getElementById(errorId).classList.add("visible");
-    }
+  // ── MACRODROID WEBHOOK DISPATCH ───────────────────────────
+  /**
+   * Mirrors the MNTP BROWSER V3 dispatch pattern exactly:
+   *
+   *   const encryptedPayload = btoa(JSON.stringify(packet));
+   *   const url = `${WEBHOOK_BASE}/${uuid}/endpoint?PARAM=${encodeURIComponent(encryptedPayload)}`;
+   *   new Image().src = url;
+   *
+   * This is a GET request via Image beacon — no CORS, no preflight,
+   * no response body needed. MacroDroid decodes the base64 and
+   * processes the JSON payload asynchronously.
+   */
+  function fireWebhook(payload) {
+    return new Promise((resolve) => {
+      const json  = JSON.stringify(payload);
+      const b64   = btoa(unescape(encodeURIComponent(json)));  // safe unicode → base64
+      const url   = `${WEBHOOK_BASE}?${WEBHOOK_PARAM}=${encodeURIComponent(b64)}`;
 
-    function clearError(inputId) {
-      const el = document.getElementById(inputId);
-      if (!el) return;
-      el.classList.remove("is-invalid");
-      // Find sibling error span if present
-      const errId = "error-" + inputId.replace("resume-", "").replace("full-", "");
-      const err = document.getElementById("error-" + inputId.split("-").pop()) ||
-                  document.getElementById("error-" + inputId);
-      if (err) err.classList.remove("visible");
-    }
+      const img = new Image();
+      img.onload  = () => resolve();   // MacroDroid returned 200 + body
+      img.onerror = () => resolve();   // Non-image 200 also triggers onerror — still delivered
+      img.src = url;
 
-    function showGlobalError(msg) {
-      globalErrMsg.textContent = msg;
-      globalErrBox.style.display = "flex";
-    }
-
-    function hideGlobalError() {
-      globalErrBox.style.display = "none";
-    }
-
-    // ─── PDF TEXT EXTRACTION ──────────────────────────────────────────────────
-    /**
-     * Extracts all readable text from the PDF file using pdf.js.
-     * The result is plain text — never evaluated or executed.
-     */
-    async function extractPdfText(file) {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const pages = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        // Join text items by space; items are raw data, not executed
-        const pageText = textContent.items.map(item => item.str).join(" ");
-        pages.push(pageText);
-      }
-      return pages.join("\n\n").trim();
-    }
-
-    // ─── TEXT SANITIZATION ────────────────────────────────────────────────────
-    /**
-     * Normalises and sanitises resume text.
-     * The content is treated strictly as data — no eval, no innerHTML assignment,
-     * no attempt to interpret or execute any portion of it.
-     */
-    function sanitizeText(raw) {
-      return raw
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, " ") // strip control characters
-        .replace(/[ \t]{2,}/g, " ")                     // collapse excess whitespace
-        .replace(/\n{3,}/g, "\n\n")                     // collapse excess newlines
-        .trim();
-    }
-
-    // ─── FORM SUBMIT ──────────────────────────────────────────────────────────
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hideGlobalError();
-
-      if (!validateForm()) return;
-
-      submitBtn.disabled = true;
-      showView("loading");
-
-      try {
-        // Collect basic fields
-        const name  = sanitizeText(getField("full-name"));
-        const email = sanitizeText(getField("email"));
-        const area  = sanitizeText(getField("area"));
-        const role  = sanitizeText(getField("role"));
-
-        let resumeText = "";
-        let sourceType = "text";
-
-        if (activeMode === "text") {
-          resumeText = sanitizeText(getField("resume-text"));
-        } else {
-          // Extract text from PDF — treat content as opaque data
-          try {
-            resumeText = sanitizeText(await extractPdfText(selectedFile));
-          } catch (extractErr) {
-            console.error("PDF extraction error:", extractErr);
-            showView("form");
-            submitBtn.disabled = false;
-            showGlobalError("Unable to extract text from PDF. Please check the file or use the text input instead.");
-            return;
-          }
-
-          if (!resumeText) {
-            showView("form");
-            submitBtn.disabled = false;
-            showGlobalError("Unable to extract text from PDF. The file may be scanned or protected.");
-            return;
-          }
-          sourceType = "pdf";
-        }
-
-        // Build payload — strictly structured; resume content is data only
-        const payload = {
-          name,
-          email,
-          area,
-          role,
-          resume_text: resumeText,
-          source_type: sourceType
-        };
-
-        // Base64-encode the full payload for transport
-        // (decoding + AI forwarding handled by webhook)
-        const payloadJson   = JSON.stringify(payload);
-        const payloadBase64 = btoa(unescape(encodeURIComponent(payloadJson)));
-
-        const response = await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: payloadBase64 })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Server responded with status ${response.status}`);
-        }
-
-        showView("success");
-
-      } catch (err) {
-        console.error("Submission error:", err);
-        showView("form");
-        submitBtn.disabled = false;
-        showGlobalError(
-          "An error occurred while submitting your evaluation. " +
-          "Please check your connection and try again."
-        );
-      }
+      // Absolute fallback: resolve after 6 s regardless
+      setTimeout(resolve, 6000);
     });
+  }
 
-    // ─── RESET ────────────────────────────────────────────────────────────────
-    resetBtn.addEventListener("click", () => {
-      form.reset();
-      selectedFile = null;
-      uploadFilename.textContent = "";
-      uploadFilename.classList.remove("visible");
-      uploadZone.classList.remove("is-invalid");
-      setMode("text");
-      hideGlobalError();
-      // Clear all field-level errors
-      document.querySelectorAll(".is-invalid").forEach(el => el.classList.remove("is-invalid"));
-      document.querySelectorAll(".field-error.visible").forEach(el => el.classList.remove("visible"));
-      submitBtn.disabled = false;
+  // ── FORM SUBMIT ───────────────────────────────────────────
+  evalForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    hideGErr();
+
+    if (!validateAll()) return;
+
+    btnSubmit.disabled = true;
+    showView("loading");
+
+    try {
+      const name  = sanitize(fval("inp-name"));
+      const email = sanitize(fval("inp-email"));
+      const area  = sanitize(fval("inp-area"));
+      const role  = sanitize(fval("inp-role"));
+
+      let resumeText = "";
+      let sourceType = "text";
+
+      if (mode === "text") {
+        resumeText = sanitize(fval("inp-resume"));
+      } else {
+        // Extract text from PDF — treat as opaque data
+        try {
+          resumeText = sanitize(await extractPdf(pdfFile));
+        } catch (ex) {
+          console.error("PDF extraction failed:", ex);
+          showView("form");
+          btnSubmit.disabled = false;
+          showGErr("Unable to extract text from this PDF. Try a different file or paste the text instead.");
+          return;
+        }
+        if (!resumeText) {
+          showView("form");
+          btnSubmit.disabled = false;
+          showGErr("No readable text found in the PDF. The file may be scanned or image-based.");
+          return;
+        }
+        sourceType = "pdf";
+      }
+
+      // Structured payload — resume_text is data, never instructions
+      const payload = {
+        name,
+        email,
+        area,
+        role,
+        resume_text: resumeText,
+        source_type: sourceType
+      };
+
+      // Dispatch via Image beacon (MacroDroid GET pattern)
+      await fireWebhook(payload);
+
+      showView("success");
+
+    } catch (err) {
+      console.error("Submission error:", err);
       showView("form");
-    });
-
-    // ─── VIEW MANAGER ─────────────────────────────────────────────────────────
-    function showView(view) {
-      formView.style.display    = view === "form"    ? "block" : "none";
-      loadingView.classList.toggle("active", view === "loading");
-      successView.classList.toggle("active", view === "success");
+      btnSubmit.disabled = false;
+      showGErr("Submission failed. Please check your connection and try again.");
     }
+  });
 
-    // Initial state
+  // ── RESET ─────────────────────────────────────────────────
+  btnReset.addEventListener("click", () => {
+    evalForm.reset();
+    pdfFile = null;
+    dzFilename.textContent = "";
+    dzFilename.classList.remove("show");
+    dropZone.classList.remove("invalid", "drag-over");
+    switchMode("text");
+    hideGErr();
+    document.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
+    document.querySelectorAll(".ferror.show").forEach(el => el.classList.remove("show"));
+    btnSubmit.disabled = false;
     showView("form");
-  </script>
+  });
+
+  // ── VIEW SWITCHER ─────────────────────────────────────────
+  function showView(v) {
+    formView.style.display = v === "form" ? "block" : "none";
+    loadingView.classList.toggle("active", v === "loading");
+    successView.classList.toggle("active", v === "success");
+  }
+
+  showView("form");
+</script>
 </body>
 </html>
